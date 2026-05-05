@@ -47,7 +47,7 @@ public class EnemyAI : MonoBehaviour
         if (!hasSeenPlayer && CanSeePlayer())
         {
             hasSeenPlayer = true;
-            animator?.SetBool("isChasingPlayer", true);
+            //animator?.SetBool("isChasingPlayer", true);
         }
 
         if (hasSeenPlayer)
