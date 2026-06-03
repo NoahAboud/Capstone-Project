@@ -3,7 +3,7 @@ using Cinemachine;
 using StarterAssets;
 using UnityEngine.InputSystem;
 using UnityEngine.Animations.Rigging;
-using Cinemachine;
+
 public class ThirdPersonPlayerController : MonoBehaviour
 {
     [SerializeField] private Rig aimRig;
@@ -15,15 +15,18 @@ public class ThirdPersonPlayerController : MonoBehaviour
     [SerializeField] private Transform enemyHit;
     [SerializeField] private Transform enemyMiss;
     [SerializeField] private ParticleSystem muzzleFlash;
-    
+
+    // --- SPRINT SPEED SETTING ---
+    [SerializeField] private float aimSprintSpeed = 2.0f; // Type your exact aiming sprint speed here
+    private float originalSprintSpeed;
 
     private ThirdPersonController thirdPersonController;
     private StarterAssetsInputs starterAssetsInputs;
     private Animator animator;
     private float aimRigWeight;
 
-    public GameObject gun;
-  
+    public GameObject gun; // Reverted back to GameObject
+
 
     private void Awake()
     {
@@ -31,11 +34,13 @@ public class ThirdPersonPlayerController : MonoBehaviour
         starterAssetsInputs = GetComponent<StarterAssetsInputs>();
         Cursor.lockState = CursorLockMode.Locked;
         animator = GetComponent<Animator>();
+
+        // Save the normal sprint speed from the Unity script before we change it
+        originalSprintSpeed = thirdPersonController.SprintSpeed;
     }
-    
+
     private void Update()
     {
-        
         Vector3 mouseWorldPosition = Vector3.zero;
 
         Vector2 screenCenterPoint = new Vector2(Screen.width / 2f, Screen.height / 2f);
@@ -50,6 +55,9 @@ public class ThirdPersonPlayerController : MonoBehaviour
 
         if (starterAssetsInputs.aim)
         {
+            // Inject your custom speed into the Unity script while aiming
+            thirdPersonController.SprintSpeed = aimSprintSpeed;
+
             aimVirtualCamera.gameObject.SetActive(true);
             thirdPersonController.SetSensitivity(aimSensitivity);
             thirdPersonController.SetRotateOnMove(false);
@@ -65,6 +73,9 @@ public class ThirdPersonPlayerController : MonoBehaviour
         }
         else
         {
+            // Restore the original speed when you stop aiming
+            thirdPersonController.SprintSpeed = originalSprintSpeed;
+
             aimVirtualCamera.gameObject.SetActive(false);
             thirdPersonController.SetSensitivity(normalSensitivity);
             thirdPersonController.SetRotateOnMove(true);
@@ -79,40 +90,29 @@ public class ThirdPersonPlayerController : MonoBehaviour
         if (starterAssetsInputs.shoot)
         {
             animator.SetTrigger("Recoil");
-           
-            
 
             if (starterAssetsInputs.aim)
             {
-
                 if (hitTransform != null)
                 {
                     if (muzzleFlash != null)
                     {
                         muzzleFlash.Play();
                     }
-                    
 
                     if (hitTransform.GetComponent<BulletTarget>() != null)
                     {
-
                         Instantiate(enemyHit, mouseWorldPosition, Quaternion.identity);
                         Debug.Log("Enemy Hit!");
                     }
                     else
                     {
-
                         Instantiate(enemyMiss, mouseWorldPosition, Quaternion.identity);
                     }
                 }
-
-
-                
             }
 
             starterAssetsInputs.shoot = false;
         }
     }
 }
-
-
