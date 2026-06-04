@@ -1,32 +1,41 @@
-using UnityEngine;
 using Cinemachine;
 using StarterAssets;
-using UnityEngine.InputSystem;
+using UnityEngine;
 using UnityEngine.Animations.Rigging;
+using UnityEngine.InputSystem;
+using static UnityEngine.LowLevelPhysics2D.PhysicsBody;
 
 public class ThirdPersonPlayerController : MonoBehaviour
 {
+    [Header("Rig & Camera References")]
     [SerializeField] private Rig aimRig;
     [SerializeField] private CinemachineVirtualCamera aimVirtualCamera;
     [SerializeField] private float normalSensitivity;
     [SerializeField] private float aimSensitivity;
     [SerializeField] private LayerMask aimColliderLayerMask = new LayerMask();
+
+    [Header("Effects & Debug")]
     [SerializeField] private Transform debugTransform;
     [SerializeField] private Transform enemyHit;
     [SerializeField] private Transform enemyMiss;
     [SerializeField] private ParticleSystem muzzleFlash;
 
-    // --- SPRINT SPEED SETTING ---
-    [SerializeField] private float aimSprintSpeed = 2.0f; // Type your exact aiming sprint speed here
-    private float originalSprintSpeed;
+    [Header("Animation Constraints")]
+    [SerializeField] private MultiAimConstraint bodyConstraint;
+    [SerializeField] private MultiAimConstraint headConstraint;
+    [SerializeField] private MultiAimConstraint aimConstraint;
 
+    [Header("Movement & Combat")]
+    [SerializeField] private float aimSprintSpeed = 2.0f;
+    [SerializeField] private int damagePerShot = 1;
+
+    private float originalSprintSpeed;
     private ThirdPersonController thirdPersonController;
     private StarterAssetsInputs starterAssetsInputs;
     private Animator animator;
-    private float aimRigWeight;
 
-    public GameObject gun; // Reverted back to GameObject
-
+    public GameObject gun;
+    public AudioSource gunSound;
 
     private void Awake()
     {
@@ -35,62 +44,73 @@ public class ThirdPersonPlayerController : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         animator = GetComponent<Animator>();
 
-        // Save the normal sprint speed from the Unity script before we change it
         originalSprintSpeed = thirdPersonController.SprintSpeed;
     }
 
     private void Update()
     {
         Vector3 mouseWorldPosition = Vector3.zero;
-
         Vector2 screenCenterPoint = new Vector2(Screen.width / 2f, Screen.height / 2f);
         Ray ray = Camera.main.ScreenPointToRay(screenCenterPoint);
         Transform hitTransform = null;
+
+        // Establish a default position far away down the camera view path to avoid erratic ray calculations
+        float defaultAimDistance = 100f;
+        Vector3 defaultAimTarget = ray.origin + ray.direction * defaultAimDistance;
+
         if (Physics.Raycast(ray, out RaycastHit raycastHit, 999f, aimColliderLayerMask))
         {
-            debugTransform.position = raycastHit.point;
+            if (debugTransform != null) debugTransform.position = raycastHit.point;
             mouseWorldPosition = raycastHit.point;
             hitTransform = raycastHit.transform;
         }
+        else
+        {
+            // Fallback location if aiming at the sky or far horizons to keep calculations smooth
+            mouseWorldPosition = defaultAimTarget;
+            if (debugTransform != null) debugTransform.position = defaultAimTarget;
+        }
 
+        // Handle Aiming State
         if (starterAssetsInputs.aim)
         {
-            // Inject your custom speed into the Unity script while aiming
             thirdPersonController.SprintSpeed = aimSprintSpeed;
-
             aimVirtualCamera.gameObject.SetActive(true);
             thirdPersonController.SetSensitivity(aimSensitivity);
             thirdPersonController.SetRotateOnMove(false);
             animator.SetLayerWeight(1, Mathf.Lerp(animator.GetLayerWeight(1), 1f, Time.deltaTime * 10));
 
-            Vector3 worldAimTarget = mouseWorldPosition;
-            worldAimTarget.y = transform.position.y;
-            Vector3 aimDirection = (worldAimTarget - transform.position).normalized;
+            // FIXED JITTER: Rotate character purely matching the camera's horizontal forward vector
+            Vector3 cameraForward = Camera.main.transform.forward;
+            cameraForward.y = 0f; // Lock rotation horizontally to prevent character leaning up or down
+            Vector3 aimDirection = cameraForward.normalized;
 
             transform.forward = Vector3.Lerp(transform.forward, aimDirection, Time.deltaTime * 20f);
-            aimRigWeight = 1f;
+
+            headConstraint.weight = 1f;
+            bodyConstraint.weight = 1f;
+            aimConstraint.weight = 1f;
+
             gun.SetActive(true);
         }
         else
         {
-            // Restore the original speed when you stop aiming
             thirdPersonController.SprintSpeed = originalSprintSpeed;
-
             aimVirtualCamera.gameObject.SetActive(false);
             thirdPersonController.SetSensitivity(normalSensitivity);
             thirdPersonController.SetRotateOnMove(true);
             animator.SetLayerWeight(1, Mathf.Lerp(animator.GetLayerWeight(1), 0f, Time.deltaTime * 10));
-            aimRigWeight = 0f;
+
+            headConstraint.weight = 0f;
+            bodyConstraint.weight = 0f;
+            aimConstraint.weight = 0f;
+
             gun.SetActive(false);
         }
 
-        aimRig.weight = Mathf.Lerp(aimRig.weight, aimRigWeight, Time.deltaTime * 20f);
-
-
+        // Handle Shooting State
         if (starterAssetsInputs.shoot)
         {
-            animator.SetTrigger("Recoil");
-
             if (starterAssetsInputs.aim)
             {
                 if (hitTransform != null)
@@ -98,17 +118,44 @@ public class ThirdPersonPlayerController : MonoBehaviour
                     if (muzzleFlash != null)
                     {
                         muzzleFlash.Play();
+                        gunSound.Play();
+                        animator.SetTrigger("Recoil");
                     }
 
+                    // Check if the hit object is registered as a target
                     if (hitTransform.GetComponent<BulletTarget>() != null)
                     {
                         Instantiate(enemyHit, mouseWorldPosition, Quaternion.identity);
                         Debug.Log("Enemy Hit!");
+
+                        // Try to grab the EnemyHealth component from the hit object, or its parent
+                        EnemyHealth enemyHealth = hitTransform.GetComponent<EnemyHealth>();
+                        if (enemyHealth == null)
+                        {
+                            enemyHealth = hitTransform.GetComponentInParent<EnemyHealth>();
+                        }
+
+                        // Apply the damage to your existing script
+                        if (enemyHealth != null)
+                        {
+                            enemyHealth.TakeDamage(damagePerShot);
+                        }
                     }
                     else
                     {
                         Instantiate(enemyMiss, mouseWorldPosition, Quaternion.identity);
                     }
+                }
+                else
+                {
+                    // Fallback to instantiate a miss effect at the default max distance if shooting into open sky
+                    if (muzzleFlash != null)
+                    {
+                        muzzleFlash.Play();
+                        gunSound.Play();
+                        animator.SetTrigger("Recoil");
+                    }
+                    Instantiate(enemyMiss, defaultAimTarget, Quaternion.identity);
                 }
             }
 

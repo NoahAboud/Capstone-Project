@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-public class EnemyAI : MonoBehaviour
+public class NewEnemyAI : MonoBehaviour
 {
     public Transform pointA;
     public Transform pointB;
@@ -47,7 +47,7 @@ public class EnemyAI : MonoBehaviour
         if (!hasSeenPlayer && CanSeePlayer())
         {
             hasSeenPlayer = true;
-            //animator?.SetBool("isChasingPlayer", true);
+            animator?.SetBool("isChasingPlayer", true);
         }
 
         if (hasSeenPlayer)
