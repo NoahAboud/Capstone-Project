@@ -54,7 +54,7 @@ public class ThirdPersonPlayerController : MonoBehaviour
         Ray ray = Camera.main.ScreenPointToRay(screenCenterPoint);
         Transform hitTransform = null;
 
-        // Establish a default position far away down the camera view path to avoid erratic ray calculations
+        
         float defaultAimDistance = 100f;
         Vector3 defaultAimTarget = ray.origin + ray.direction * defaultAimDistance;
 
@@ -66,12 +66,12 @@ public class ThirdPersonPlayerController : MonoBehaviour
         }
         else
         {
-            // Fallback location if aiming at the sky or far horizons to keep calculations smooth
+            
             mouseWorldPosition = defaultAimTarget;
             if (debugTransform != null) debugTransform.position = defaultAimTarget;
         }
 
-        // Handle Aiming State
+        
         if (starterAssetsInputs.aim)
         {
             thirdPersonController.SprintSpeed = aimSprintSpeed;
@@ -80,9 +80,9 @@ public class ThirdPersonPlayerController : MonoBehaviour
             thirdPersonController.SetRotateOnMove(false);
             animator.SetLayerWeight(1, Mathf.Lerp(animator.GetLayerWeight(1), 1f, Time.deltaTime * 10));
 
-            // FIXED JITTER: Rotate character purely matching the camera's horizontal forward vector
+            
             Vector3 cameraForward = Camera.main.transform.forward;
-            cameraForward.y = 0f; // Lock rotation horizontally to prevent character leaning up or down
+            cameraForward.y = 0f; 
             Vector3 aimDirection = cameraForward.normalized;
 
             transform.forward = Vector3.Lerp(transform.forward, aimDirection, Time.deltaTime * 20f);
@@ -108,7 +108,7 @@ public class ThirdPersonPlayerController : MonoBehaviour
             gun.SetActive(false);
         }
 
-        // Handle Shooting State
+        
         if (starterAssetsInputs.shoot)
         {
             if (starterAssetsInputs.aim)
@@ -122,20 +122,20 @@ public class ThirdPersonPlayerController : MonoBehaviour
                         animator.SetTrigger("Recoil");
                     }
 
-                    // Check if the hit object is registered as a target
+                    
                     if (hitTransform.GetComponent<BulletTarget>() != null)
                     {
                         Instantiate(enemyHit, mouseWorldPosition, Quaternion.identity);
                         Debug.Log("Enemy Hit!");
 
-                        // Try to grab the EnemyHealth component from the hit object, or its parent
+                        
                         EnemyHealth enemyHealth = hitTransform.GetComponent<EnemyHealth>();
                         if (enemyHealth == null)
                         {
                             enemyHealth = hitTransform.GetComponentInParent<EnemyHealth>();
                         }
 
-                        // Apply the damage to your existing script
+                        
                         if (enemyHealth != null)
                         {
                             enemyHealth.TakeDamage(damagePerShot);
@@ -148,7 +148,7 @@ public class ThirdPersonPlayerController : MonoBehaviour
                 }
                 else
                 {
-                    // Fallback to instantiate a miss effect at the default max distance if shooting into open sky
+                    
                     if (muzzleFlash != null)
                     {
                         muzzleFlash.Play();
